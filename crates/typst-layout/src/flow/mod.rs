@@ -381,9 +381,9 @@ struct ColumnConfig {
     /// The number of columns.
     count: usize,
     /// The width of each column.
-    width: Abs,
+    width: Vec<Abs>,
     /// The amount of space between columns.
-    gutter: Abs,
+    gutter: Vec<Abs>,
     /// The horizontal direction in which columns progress. Defined by
     /// `text.dir`.
     dir: Dir,

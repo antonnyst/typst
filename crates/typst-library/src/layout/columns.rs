@@ -1,7 +1,8 @@
 use std::num::NonZeroUsize;
 
 use crate::foundations::{Content, elem};
-use crate::layout::{Length, Ratio, Rel};
+use crate::layout::{Fr, Ratio, Sizing, TrackSizings};
+use smallvec::smallvec;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -46,9 +47,13 @@ pub struct ColumnsElem {
     #[default(NonZeroUsize::new(2).unwrap())]
     pub count: NonZeroUsize,
 
+    ///
+    #[default(TrackSizings(smallvec![Sizing::Fr(Fr::one())]))]
+    pub widths: TrackSizings,
+
     /// The size of the gutter space between each column.
-    #[default(Ratio::new(0.04).into())]
-    pub gutter: Rel<Length>,
+    #[default(TrackSizings(smallvec![Sizing::Rel(Ratio::new(0.04).into())]))]
+    pub gutter: TrackSizings,
 
     /// The content that should be layouted into the columns.
     #[required]
