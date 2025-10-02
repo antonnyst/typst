@@ -214,7 +214,7 @@ pub fn layout_flow<'a>(
         &bump,
         children,
         locator.next(&()),
-        Size::new(config.columns.width, regions.full),
+        Size::new(config.columns.width[0], regions.full),
         regions.expand.x,
         mode,
     )?;
