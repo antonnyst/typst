@@ -182,7 +182,8 @@ fn layout_page_run_impl(
         styles,
         Regions::repeat(area, area.map(Abs::is_finite)),
         styles.get(PageElem::columns),
-        styles.get(ColumnsElem::gutter).resolve(styles),
+        styles.get_ref(ColumnsElem::widths),
+        styles.get_ref(ColumnsElem::gutter),
         FlowMode::Root,
     )?;
 

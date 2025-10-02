@@ -22,8 +22,7 @@ use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, ColumnsElem, Dir, Em, Fr, Fragment, Frame, PageElem, PlacementScope, Region, Regions, Rel, Size, Sizing, TrackSizings
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
@@ -36,6 +35,7 @@ use self::collect::{
 };
 use self::compose::{Composer, compose};
 use self::distribute::distribute;
+use smallvec::smallvec;
 
 /// Lays out content into a single region, producing a single frame.
 pub fn layout_frame(
@@ -70,8 +70,11 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        NonZeroUsize::ONE,
-        Rel::zero(),
+        ColumnDefs {
+            count: NonZeroUsize::ONE, 
+            gutter: &TrackSizings(smallvec![Sizing::Rel(Rel::zero())]), 
+            widths: &TrackSizings(smallvec![Sizing::Fr(Fr::one())])
+        }
     )
 }
 
@@ -98,8 +101,11 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count.get(styles),
-        elem.gutter.resolve(styles),
+        ColumnDefs {
+            count: elem.count.get(styles),
+            widths: elem.gutter.get_ref(styles),
+            gutter: elem.widths.get_ref(styles)
+        }
     )
 }
 
@@ -117,8 +123,7 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    columns: ColumnDefs
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -157,8 +162,9 @@ fn layout_fragment_impl(
         &mut locator,
         styles,
         regions,
-        columns,
-        column_gutter,
+        columns.count,
+        columns.widths,
+        columns.gutter,
         kind.into(),
     )
 }
@@ -193,11 +199,12 @@ pub fn layout_flow<'a>(
     shared: StyleChain<'a>,
     mut regions: Regions,
     columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column_widths: &TrackSizings,
+    column_gutter: &TrackSizings,
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, mode);
+    let config = configuration(shared, regions, columns, column_gutter, column_widths, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -237,7 +244,8 @@ fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
     columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column_gutter: &TrackSizings,
+    column_widths: &TrackSizings,
     mode: FlowMode,
 ) -> Config<'x> {
     Config {
@@ -428,4 +436,12 @@ impl From<EcoVec<SourceDiagnostic>> for Stop {
     fn from(error: EcoVec<SourceDiagnostic>) -> Self {
         Stop::Error(error)
     }
+}
+
+// Collected definitions for columns
+#[derive(Hash)]
+struct ColumnDefs<'a> {
+    count: NonZeroUsize,
+    gutter: &'a TrackSizings,
+    widths: &'a TrackSizings,
 }
