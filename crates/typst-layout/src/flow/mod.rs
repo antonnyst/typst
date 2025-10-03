@@ -36,6 +36,7 @@ use self::collect::{
 use self::compose::{Composer, compose};
 use self::distribute::distribute;
 use smallvec::smallvec;
+use typst_library::text::TopEdge::Length;
 
 /// Lays out content into a single region, producing a single frame.
 pub fn layout_frame(
@@ -71,8 +72,8 @@ pub fn layout_fragment(
         styles,
         regions,
         ColumnDefs {
-            count: NonZeroUsize::ONE, 
-            gutter: &TrackSizings(smallvec![Sizing::Rel(Rel::zero())]), 
+            count: NonZeroUsize::ONE,
+            gutter: &TrackSizings(smallvec![Sizing::Rel(Rel::zero())]),
             widths: &TrackSizings(smallvec![Sizing::Fr(Fr::one())])
         }
     )
@@ -257,10 +258,74 @@ fn configuration<'x>(
                 count = 1;
             }
 
-            let gutter = column_gutter.relative_to(regions.base().x);
-            let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
+            let total_space = Abs::zero();
+            let needed_gutters = count.saturating_sub(1);
+
+            let width_tracks = column_widths.0.as_slice();
+            let gutter_tracks = column_gutter.0.as_slice();
+
+            let mut output_widths = vec![Abs::zero(); count];
+            let mut output_gutters = vec![Abs::zero(); needed_gutters];
+
+            let width_track_at = |i: usize| {
+                if width_tracks.is_empty() { None } else { Some(&width_tracks[i % width_tracks.len()]) }
+            };
+            let gutter_track_at = |i: usize| {
+                if gutter_tracks.is_empty() { None } else { Some(&gutter_tracks[i % gutter_tracks.len()]) }
+            };
+
+            let mut abs_sum = Abs::zero();
+            let mut fr_sum = 0.0_f64;
+
+            for i in 0..count{
+                if let Some(sizing) = width_track_at(i){
+                    match sizing {
+                        Sizing::Rel(rel) => {
+                            let resolved = rel.resolve(shared).relative_to(regions.size.x);
+                            output_widths[i] = resolved;
+                            abs_sum += resolved;
+                        }
+                        Sizing::Fr(fr) => {
+                            fr_sum += fr.get();
+                        }
+                        Sizing::Auto => {}
+                    }
+                }
+            }
+            for i in 0..needed_gutters{
+                if let Some(sizing) = gutter_track_at(i) {
+                    match sizing {
+                        Sizing::Rel(rel)=>{
+                            let resolved = rel.resolve(shared).relative_to(regions.size.x);
+                            output_gutters[i] = resolved;
+                            abs_sum += resolved;
+                        }
+                        Sizing::Fr(fr)=>{
+                            fr_sum += fr.get();
+                        }
+                        Sizing::Auto => {}
+                    }
+                }
+            }
+            let remaining = regions.size.x - abs_sum;
+            if fr_sum > 0.0{
+                for i in 0..count{
+                    if let Some(Sizing::Fr(fr)) = width_track_at(i){
+                        let share = fr.get() / fr_sum;
+                        output_widths[i] = remaining * share;
+                    }
+                }
+                for i in 0..needed_gutters{
+                    if let Some(Sizing::Fr(fr)) = gutter_track_at(i){
+                        let share = fr.get() / fr_sum;
+                        output_gutters[i] = remaining * share;
+                    }
+                }
+            }
+
             let dir = shared.resolve(TextElem::dir);
-            ColumnConfig { count, width, gutter, dir }
+
+            ColumnConfig {count, width: output_widths, gutter: output_gutters, dir}
         },
         footnote: FootnoteConfig {
             separator: shared.get_cloned(FootnoteEntry::separator),
