@@ -257,8 +257,7 @@ fn configuration<'x>(
             if !regions.size.x.is_finite() {
                 count = 1;
             }
-
-            let total_space = Abs::zero();
+            
             let needed_gutters = count.saturating_sub(1);
 
             let width_tracks = column_widths.0.as_slice();
