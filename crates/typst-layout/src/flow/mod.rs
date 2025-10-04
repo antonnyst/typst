@@ -104,8 +104,8 @@ pub fn layout_columns(
         regions,
         ColumnDefs {
             count: elem.count.get(styles),
-            widths: elem.gutter.get_ref(styles),
-            gutter: elem.widths.get_ref(styles)
+            widths: elem.widths.get_ref(styles),
+            gutter: elem.gutter.get_ref(styles)
         }
     )
 }
@@ -205,7 +205,7 @@ pub fn layout_flow<'a>(
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, column_widths, mode);
+    let config = configuration(shared, regions, columns, column_widths, column_gutter, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -245,8 +245,8 @@ fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
     columns: NonZeroUsize,
-    column_gutter: &TrackSizings,
     column_widths: &TrackSizings,
+    column_gutter: &TrackSizings,
     mode: FlowMode,
 ) -> Config<'x> {
     Config {
