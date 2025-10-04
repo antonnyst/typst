@@ -119,6 +119,14 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             .skip(1)
             .collect();
 
+        // Subregions for column layout.
+        let mut inner = Regions {
+            size: Size::new(Abs::zero(), column_height),
+            backlog: &backlog,
+            expand: Axes::new(true, regions.expand.y),
+            ..regions
+        };
+
         // The size of the merged frame hosting multiple columns.
         let size = Size::new(
             regions.size.x,
@@ -132,14 +140,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Lay out the columns and stitch them together.
         for i in 0..self.config.columns.count {
             self.column = i;
-
-            // Subregions for column layout.
-            let mut inner = Regions {
-                size: Size::new(self.config.columns.width[i], column_height),
-                backlog: &backlog,
-                expand: Axes::new(true, regions.expand.y),
-                ..regions
-            };
+            inner.size.x = self.config.columns.width[i];
 
             let frame = self.column(locator.next(&()), inner)?;
 
