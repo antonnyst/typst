@@ -260,24 +260,41 @@ fn configuration<'x>(
             
             let needed_gutters = count.saturating_sub(1);
 
-            let width_tracks = column_widths.0.as_slice();
-            let gutter_tracks = column_gutter.0.as_slice();
+            let widths_tracks: Vec<&Sizing> = column_widths.0
+                .iter()
+                .chain(
+                    std::iter::repeat(
+                        column_widths.0.iter().last().unwrap_or(&Sizing::Auto)
+                    )
+                )
+                .take(count)
+                .collect();
+
+            let gutter_tracks: Vec<&Sizing> = column_gutter.0
+                .iter()
+                .chain(
+                    std::iter::repeat(
+                        column_gutter.0.iter().last().unwrap_or(&Sizing::Auto)
+                    )
+                )
+                .take(needed_gutters)
+                .collect();
 
             let mut output_widths = vec![Abs::zero(); count];
             let mut output_gutters = vec![Abs::zero(); needed_gutters];
 
-            let width_track_at = |i: usize| {
+            /*let width_track_at = |i: usize| {
                 if width_tracks.is_empty() { None } else { Some(&width_tracks[i % width_tracks.len()]) }
             };
             let gutter_track_at = |i: usize| {
                 if gutter_tracks.is_empty() { None } else { Some(&gutter_tracks[i % gutter_tracks.len()]) }
-            };
+            };*/
 
             let mut abs_sum = Abs::zero();
-            let mut fr_sum = 0.0_f64;
+            let mut fr_sum = Fr::zero();
 
             for i in 0..count{
-                if let Some(sizing) = width_track_at(i){
+                if let Some(sizing) = widths_tracks.get(i) {
                     match sizing {
                         Sizing::Rel(rel) => {
                             let resolved = rel.resolve(shared).relative_to(regions.size.x);
@@ -285,14 +302,17 @@ fn configuration<'x>(
                             abs_sum += resolved;
                         }
                         Sizing::Fr(fr) => {
-                            fr_sum += fr.get();
+                            fr_sum += *fr;
                         }
-                        Sizing::Auto => {}
+                        Sizing::Auto => {
+                            fr_sum += Fr::one();
+                        }
                     }
                 }
             }
+            
             for i in 0..needed_gutters{
-                if let Some(sizing) = gutter_track_at(i) {
+                if let Some(sizing) = gutter_tracks.get(i) {
                     match sizing {
                         Sizing::Rel(rel)=>{
                             let resolved = rel.resolve(shared).relative_to(regions.size.x);
@@ -300,24 +320,25 @@ fn configuration<'x>(
                             abs_sum += resolved;
                         }
                         Sizing::Fr(fr)=>{
-                            fr_sum += fr.get();
+                            fr_sum += *fr;
                         }
-                        Sizing::Auto => {}
+                        Sizing::Auto => {
+                            fr_sum += Fr::one();
+                        }
                     }
                 }
             }
+
             let remaining = regions.size.x - abs_sum;
-            if fr_sum > 0.0{
-                for i in 0..count{
-                    if let Some(Sizing::Fr(fr)) = width_track_at(i){
-                        let share = fr.get() / fr_sum;
-                        output_widths[i] = remaining * share;
+            if remaining > Abs::zero() {
+                for i in 0..count{    
+                    if let Some(Sizing::Fr(fr)) = widths_tracks.get(i){
+                        output_widths[i] = fr.share(fr_sum, remaining);
                     }
                 }
                 for i in 0..needed_gutters{
-                    if let Some(Sizing::Fr(fr)) = gutter_track_at(i){
-                        let share = fr.get() / fr_sum;
-                        output_gutters[i] = remaining * share;
+                    if let Some(Sizing::Fr(fr)) = gutter_tracks.get(i){
+                        output_gutters[i] = fr.share(fr_sum, remaining);
                     }
                 }
             }
